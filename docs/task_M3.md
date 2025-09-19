@@ -110,3 +110,20 @@ Pre-commit（本地开发者建议启用）：
 - `.github/workflows/ci.yml`：质量基线自动化
 - `.github/workflows/docker-build.yml`：容器构建健检
 - 文档：`docs/M3.md`（本文件）
+
+---
+
+## 8) 本次完善与验收记录（补充）
+
+- 验证容器构建健检工作流
+  - 在 GitHub Actions 页面可通过 `docker-build` 的 `Run workflow` 手动触发（`workflow_dispatch`）。
+  - 也可通过提交仅触发构建的最小改动（例如在 `docker/Dockerfile_*` 末尾追加注释）发起 PR，`paths` 过滤匹配后将自动触发。
+- 主分支保护建议
+  - Settings → Branches → Add rule：选择 `main`，勾选 `Require status checks to pass before merging`，并勾选 `ci` 工作流对应的 checks。
+  - 建议启用：`Require pull request reviews before merging` 与 `Require linear history`（保持精简，不做过度限制）。
+- 本地开发体验
+  - pre-commit：`uv run pre-commit install` 一次性安装；可用 `uv run pre-commit run --all-files` 全量检查。
+  - 一键质量检查：`uv sync --group dev` 后执行 `bash scripts/dev_check.sh`；若无 uv，脚本会自动回退到系统环境。
+  - 手工等价命令：`uv run ruff format --check && uv run ruff check . && uv run mypy src && uv run pytest -q`。
+
+以上内容均基于现有配置与最佳实践，避免重复/冲突设计，变更控制在最小范围内。

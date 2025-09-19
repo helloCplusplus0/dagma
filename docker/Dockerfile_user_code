@@ -30,3 +30,5 @@ EXPOSE 4000
 
 # 以模块方式启动 gRPC 代码位置（与 src/dagma/definitions.py 对齐）
 CMD ["dagster", "api", "grpc", "--module-name", "dagma.definitions", "--host", "0.0.0.0", "--port", "4000"]
+
+# CI: noop change to trigger docker-build workflow validation
