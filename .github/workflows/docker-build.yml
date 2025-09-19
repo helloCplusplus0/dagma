@@ -1,0 +1,54 @@
+name: docker-build
+
+on:
+  pull_request:
+    paths:
+      - 'docker/**'
+      - 'docker-compose.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-dagster:
+    name: Build dagster image (sanity)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build dagster image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile_dagster
+          platforms: linux/amd64
+          push: false
+          tags: ghcr.io/${{ github.repository }}/dagster:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-user-code:
+    name: Build user code image (sanity)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build user code image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile_user_code
+          platforms: linux/amd64
+          push: false
+          tags: ghcr.io/${{ github.repository }}/user-code:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

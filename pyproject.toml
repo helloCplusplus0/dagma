@@ -1,0 +1,58 @@
+[build-system]
+requires = ["uv_build>=0.8.17,<0.9.0"]
+build-backend = "uv_build"
+
+[project]
+name = "dagma"
+version = "0.1.0"
+description = "Dagma: Dagster-based data/ML orchestration baseline"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { file = "LICENSE" }
+authors = [{ name = "Dagma Authors" }]
+dependencies = [
+  "dagster",
+  "dagster-webserver",
+]
+
+[tool.dagster]
+# 使 dagster 能从包内发现代码位置（M1 填充 definitions 内容后可直接 `dagster dev`）
+module_name = "dagma.definitions"
+code_location_name = "dagma"
+
+[dependency-groups]
+# 开发依赖分组（本地与 CI 可通过 `uv sync --group dev` 安装）
+dev = [
+  "ruff",
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "pre-commit",
+]
+
+[tool.ruff]
+line-length = 100
+# 与项目 Python 版本一致
+target-version = "py311"
+# 可忽略文档目录
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+# 常用规则集：E/F 基础错误，I import 排序，UP 现代化，B bugbear
+select = ["E", "F", "I", "UP", "B"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.11"
+warn_redundant_casts = true
+warn_unused_ignores = true
+strict_optional = false
+ignore_missing_imports = true
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-q -ra"

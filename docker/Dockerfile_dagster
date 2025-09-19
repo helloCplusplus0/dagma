@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DAGSTER_HOME=/opt/dagster/dagster_home
+
+# 代理构建参数（按需传入），并导出为构建期环境变量
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ENV http_proxy=${HTTP_PROXY} https_proxy=${HTTPS_PROXY} no_proxy=${NO_PROXY}
+
+# 安装 Dagster 核心与 Web/PG 适配
+RUN pip install --no-cache-dir \
+    dagster \
+    dagster-webserver \
+    dagster-postgres \
+    psycopg2-binary
+
+# 准备实例目录并拷贝容器态配置
+RUN mkdir -p ${DAGSTER_HOME}
+WORKDIR /opt/dagster
+COPY docker/config/dagster.yaml ${DAGSTER_HOME}/dagster.yaml
+COPY docker/config/workspace.yaml /opt/dagster/workspace.yaml
+
+# webserver 暴露端口
+EXPOSE 3000

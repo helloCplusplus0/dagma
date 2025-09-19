@@ -1,0 +1,32 @@
+telemetry:
+  enabled: false
+
+# 移除 instance_class 配置，使用默认 DagsterInstance
+# instance_class: dagster._core.instance.DagsterInstance
+
+# 使用 dagster-postgres 作为实例存储组件
+run_storage:
+  module: dagster_postgres.run_storage
+  class: PostgresRunStorage
+  config:
+    postgres_url:
+      env: DAGSTER_PG_URL
+
+event_log_storage:
+  module: dagster_postgres.event_log
+  class: PostgresEventLogStorage
+  config:
+    postgres_url:
+      env: DAGSTER_PG_URL
+
+schedule_storage:
+  module: dagster_postgres.schedule_storage
+  class: PostgresScheduleStorage
+  config:
+    postgres_url:
+      env: DAGSTER_PG_URL
+
+# 使用排队运行协调器，由 dagster-daemon 出队执行
+run_coordinator:
+  module: dagster._core.run_coordinator.queued_run_coordinator
+  class: QueuedRunCoordinator

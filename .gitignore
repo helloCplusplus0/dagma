@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.build/
+build/
+dist/
+
+# Envs & locks
+.venv/
+.venv*/
+.env
+.env*/
+uv.lock
+
+# Tools caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
++.trae/
+
+# Local docker overrides
++docker-compose.override.yml
+
+# Dagster runtime artifacts (if used)
+.dagster/

@@ -1,0 +1,32 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DAGSTER_HOME=/opt/dagster/dagster_home \
+    PYTHONPATH=/opt/dagster/app/src
+
+# 代理构建参数（按需传入），并导出为构建期环境变量
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ENV http_proxy=${HTTP_PROXY} https_proxy=${HTTPS_PROXY} no_proxy=${NO_PROXY}
+
+# 安装最小依赖：Dagster 与 Postgres 存储适配器
+RUN pip install --no-cache-dir \
+    dagster \
+    dagster-postgres \
+    psycopg2-binary \
+    pydantic>=2
+
+# 代码位置目录
+WORKDIR /opt/dagster/app
+
+# 复制必要代码与元数据，尽量减小镜像体积
+COPY src/ /opt/dagster/app/src/
+COPY pyproject.toml /opt/dagster/app/
+
+# 暴露 gRPC 端口
+EXPOSE 4000
+
+# 以模块方式启动 gRPC 代码位置（与 src/dagma/definitions.py 对齐）
+CMD ["dagster", "api", "grpc", "--module-name", "dagma.definitions", "--host", "0.0.0.0", "--port", "4000"]
