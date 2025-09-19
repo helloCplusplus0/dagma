@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,39 +17,69 @@ concurrency:
 
 jobs:
   build-dagster:
-    name: Build dagster image (sanity)
+    name: Build dagster image (push to GHCR)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build dagster image
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker meta (dagster)
+        id: meta_dagster
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/dagster
+          tags: |
+            type=raw,value=ci
+            type=sha,prefix=ci-,format=short
+      - name: Build and push dagster image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile_dagster
           platforms: linux/amd64
-          push: false
-          tags: dagma/dagster:ci
+          push: true
+          tags: ${{ steps.meta_dagster.outputs.tags }}
+          labels: ${{ steps.meta_dagster.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   build-user-code:
-    name: Build user code image (sanity)
+    name: Build user code image (push to GHCR)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build user code image
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker meta (user-code)
+        id: meta_user_code
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/user-code
+          tags: |
+            type=raw,value=ci
+            type=sha,prefix=ci-,format=short
+      - name: Build and push user code image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile_user_code
           platforms: linux/amd64
-          push: false
-          tags: dagma/user-code:ci
+          push: true
+          tags: ${{ steps.meta_user_code.outputs.tags }}
+          labels: ${{ steps.meta_user_code.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
