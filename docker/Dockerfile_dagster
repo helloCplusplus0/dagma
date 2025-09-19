@@ -10,6 +10,14 @@ ARG HTTPS_PROXY
 ARG NO_PROXY
 ENV http_proxy=${HTTP_PROXY} https_proxy=${HTTPS_PROXY} no_proxy=${NO_PROXY}
 
+# 为可能缺失预编译轮子的依赖提供最小构建工具（如 watchfiles/uvloop/orjson）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      cargo \
+      rustc && \
+    rm -rf /var/lib/apt/lists/*
+
 # 安装 Dagster 核心与 Web/PG 适配
 RUN pip install --no-cache-dir \
     dagster \
