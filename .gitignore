@@ -32,3 +32,6 @@ uv.lock
 
 # Dagster runtime artifacts (if used)
 .dagster/
+
+# MLflow tracking runs
+mlruns/
