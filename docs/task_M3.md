@@ -54,20 +54,25 @@ Pre-commit（本地开发者建议启用）：
 
 ---
 
-## 3) 容器构建健检（非发布，仅构建验证）
+## 3) 容器构建与 GHCR 推送（PR 构建）
 
-目标：在 Dockerfile 或 compose 变更时，验证两类镜像能成功构建（`docker/Dockerfile_dagster` 与 `docker/Dockerfile_user_code`）。不推送、不发布，仅做健检与缓存以加速复跑。
+目标：在 Dockerfile 或 compose 变更时，构建并推送两类镜像到 GHCR（`ghcr.io/<owner>/<repo>/{dagster,user-code}`），用于评审验证；保持简洁策略：单平台 `linux/amd64`、私有可见性、精简标签。
 
 - 触发条件
   - `pull_request`：`docker/**`、`docker-compose.yml`
   - `workflow_dispatch`：手动触发
 - 核心步骤
   1) `actions/checkout`
-  2) `docker/setup-buildx-action` + `docker/build-push-action`
-  3) `cache-from/to: type=gha` 使用 GitHub Actions 缓存
-- 平台：`linux/amd64`（与默认 runner 一致）
+  2) `docker/setup-buildx-action`
+  3) `docker/login-action` 登录 GHCR（使用内置 `GITHUB_TOKEN`，需 `packages: write` 权限）
+  4) `docker/metadata-action` 生成标签：`ci`、`ci-<short-sha>`（自动小写化）
+  5) `docker/build-push-action` 构建并 push（`cache-from/to: type=gha` 加速复跑）
+- 平台：`linux/amd64`
+- 镜像与标签（两镜像三服务：`webserver/daemon` 共用 `dagster`，`user-code` 独立）
+  - `ghcr.io/<owner>/<repo>/dagster:ci`，`ghcr.io/<owner>/<repo>/dagster:ci-<short-sha>`
+  - `ghcr.io/<owner>/<repo>/user-code:ci`，`ghcr.io/<owner>/<repo>/user-code:ci-<short-sha>`
 
-工作流文件：`.github/workflows/docker-build.yml`（已由本任务创建）
+工作流文件：`.github/workflows/docker-build.yml`（已更新为 push 到 GHCR）
 
 ---
 
@@ -108,16 +113,17 @@ Pre-commit（本地开发者建议启用）：
 ## 7) 成果清单（本次已落地）
 
 - `.github/workflows/ci.yml`：质量基线自动化
-- `.github/workflows/docker-build.yml`：容器构建健检
-- 文档：`docs/M3.md`（本文件）
+- `.github/workflows/docker-build.yml`：容器构建与 GHCR 推送
+- 文档：`docs/task_M3.md`（本文件）
 
 ---
 
 ## 8) 本次完善与验收记录（补充）
 
-- 验证容器构建健检工作流
+- 验证容器构建与 GHCR 推送工作流
   - 在 GitHub Actions 页面可通过 `docker-build` 的 `Run workflow` 手动触发（`workflow_dispatch`）。
   - 也可通过提交仅触发构建的最小改动（例如在 `docker/Dockerfile_*` 末尾追加注释）发起 PR，`paths` 过滤匹配后将自动触发。
+  - 构建完成后，可在仓库 Packages 查看 `ghcr.io/<owner>/<repo>/{dagster,user-code}` 两个镜像，包含 `ci` 与 `ci-<short-sha>` 标签；可使用 `docker pull ghcr.io/<owner>/<repo>/dagster:ci` 拉取验证（私有包需访问权限）。
 - 主分支保护建议
   - Settings → Branches → Add rule：选择 `main`，勾选 `Require status checks to pass before merging`，并勾选 `ci` 工作流对应的 checks。
   - 建议启用：`Require pull request reviews before merging` 与 `Require linear history`（保持精简，不做过度限制）。

@@ -30,11 +30,15 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute lowercase repo
+        id: repo_lc
+        shell: bash
+        run: echo "repo_lc=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - name: Docker meta (dagster)
         id: meta_dagster
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/dagster
+          images: ghcr.io/${{ steps.repo_lc.outputs.repo_lc }}/dagster
           tags: |
             type=raw,value=ci
             type=sha,prefix=ci-,format=short
@@ -64,11 +68,15 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute lowercase repo
+        id: repo_lc
+        shell: bash
+        run: echo "repo_lc=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - name: Docker meta (user-code)
         id: meta_user_code
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/user-code
+          images: ghcr.io/${{ steps.repo_lc.outputs.repo_lc }}/user-code
           tags: |
             type=raw,value=ci
             type=sha,prefix=ci-,format=short
