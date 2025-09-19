@@ -30,7 +30,7 @@ jobs:
           file: docker/Dockerfile_dagster
           platforms: linux/amd64
           push: false
-          tags: ghcr.io/${{ toLower(github.repository) }}/dagster:ci
+          tags: dagma/dagster:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -49,6 +49,6 @@ jobs:
           file: docker/Dockerfile_user_code
           platforms: linux/amd64
           push: false
-          tags: ghcr.io/${{ toLower(github.repository) }}/user-code:ci
+          tags: dagma/user-code:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
