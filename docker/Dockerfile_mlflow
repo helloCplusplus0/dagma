@@ -1,0 +1,13 @@
+FROM ghcr.io/mlflow/mlflow:v2.16.0
+
+# 代理构建参数（按需传入），并导出为构建期环境变量
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ENV http_proxy=${HTTP_PROXY} https_proxy=${HTTPS_PROXY} no_proxy=${NO_PROXY}
+
+# 安装 PostgreSQL 驱动以支持 backend-store-uri=postgres
+RUN pip install --no-cache-dir psycopg2-binary
+
+# 暴露 UI 端口（由编排映射）
+EXPOSE 5000

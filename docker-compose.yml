@@ -32,12 +32,24 @@ services:
       DAGSTER_HOME: /opt/dagster/dagster_home
       DAGSTER_CURRENT_IMAGE: ${USER_CODE_IMAGE:-dagma/user-code:dev}
       DAGSTER_PG_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dagster}
+      MLFLOW_USE_TRACKING: "1"
+      # 明确指向 mlflow 服务，避免走宿主代理
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      HTTP_PROXY: ""
+      http_proxy: ""
+      HTTPS_PROXY: ""
+      https_proxy: ""
+      NO_PROXY: user_code,postgres,mlflow,qdrant,localhost,127.0.0.1,::1
+      no_proxy: user_code,postgres,mlflow,qdrant,localhost,127.0.0.1,::1
     depends_on:
       postgres:
         condition: service_healthy
+      mlflow:
+        condition: service_started
     volumes:
       - dagster_home:/opt/dagster/dagster_home
       - ./docker/config/dagster.yaml:/opt/dagster/dagster_home/dagster.yaml:ro
+      - mlruns:/mlruns
     networks:
       - dagma
 
@@ -107,10 +119,18 @@ services:
       - dagma
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.16.0
-    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dagster}", "--default-artifact-root", "/mlruns"]
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile_mlflow
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
+    image: ${MLFLOW_IMAGE:-dagma/mlflow:dev}
+    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000", "--serve-artifacts", "--backend-store-uri", "postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${MLFLOW_DB:-mlflow}", "--artifacts-destination", "/mlruns"]
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_DB: ${POSTGRES_DB:-dagster}
     ports:
       - "${MLFLOW_PORT:-5000}:5000"
     volumes:

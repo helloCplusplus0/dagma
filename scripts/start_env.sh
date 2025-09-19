@@ -112,6 +112,8 @@ if [ "$ACTION" = "up" ]; then
     podman build --network=host -f docker/Dockerfile_dagster -t "${DAGSTER_IMAGE:-dagma/dagster:dev}" "${HOST_BUILD_ARGS[@]}" .
     echo "[start_env] 预构建（podman build --network=host）user_code 镜像: ${USER_CODE_IMAGE:-dagma/user-code:dev}"
     podman build --network=host -f docker/Dockerfile_user_code -t "${USER_CODE_IMAGE:-dagma/user-code:dev}" "${HOST_BUILD_ARGS[@]}" .
+    echo "[start_env] 预构建（podman build --network=host）mlflow 镜像: ${MLFLOW_IMAGE:-dagma/mlflow:dev}"
+    podman build --network=host -f docker/Dockerfile_mlflow -t "${MLFLOW_IMAGE:-dagma/mlflow:dev}" "${HOST_BUILD_ARGS[@]}" .
   fi
 
   $COMPOSE_CMD build "${BUILD_ARGS[@]}" "${services[@]}"

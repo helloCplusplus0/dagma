@@ -9,8 +9,9 @@ sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 from dagster import materialize  # noqa: E402
 
 from dagma.defs.data import assets as data_assets  # noqa: E402
+from dagma.defs.llm import assets as llm_assets  # noqa: E402
 from dagma.defs.models import assets as model_assets  # noqa: E402
-from dagma.defs.models import resources as model_resources
+from dagma.defs.models import resources as model_resources  # noqa: E402
 
 
 def test_data_assets_materialize():
@@ -29,3 +30,10 @@ def test_models_asset_with_resource_override():
     payload = result.output_for_node("train_model_stub")
     assert payload["status"] == "ok"
     assert "run_id" in payload
+
+
+def test_llm_assets_defined():
+    # 轻量验证：资产函数可被 materialize 调用到定义阶段（不执行到外部请求）
+    assert callable(llm_assets.embed_texts_stub)
+    assert callable(llm_assets.qdrant_upsert)
+    assert callable(llm_assets.qdrant_search)

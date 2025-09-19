@@ -24,7 +24,8 @@ RUN pip install --no-cache-dir \
     dagster \
     dagster-postgres \
     psycopg2-binary \
-    pydantic>=2
+    pydantic>=2 \
+    mlflow
 
 # 代码位置目录
 WORKDIR /opt/dagster/app

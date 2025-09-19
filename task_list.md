@@ -7,7 +7,7 @@
 ## 概览
 - 核心组件：Dagster（编排）、MLflow（实验追踪）、Qdrant（向量库）、PostgreSQL（数据库）、LangChain/LangFlow（LLM/Agent）、Streamlit（可视化应用）
 - 目标结构：遵循 Dagster 标准项目结构（definitions.py、workspace.yaml、dagster.yaml、assets/resources/partitions、tests），分阶段合入。
-- 交付节奏：M1 最小可运行骨架 → M2 docker/compose 与脚本 → M3 工程化与 CI → M4 扩展能力与端到端示例。
+- 交付节奏：M1 最小可运行骨架 → M2 docker/compose 与脚本 → M3 工程化与 CI → M4 向量检索最小链路（RAG-MVP） → M5 MLflow 集成 → M6 LLM/Agent 与编排增强 → M7 可视化与生产化指引。
 
 —
 
@@ -79,7 +79,7 @@
 
 —
 
-### M3. 工程化与 CI/CD
+### Y M3. 工程化与 CI/CD
 - [ ] 质量基线
   - [ ] ruff/black/isort/mypy 配置与通过
   - [ ] pytest + 覆盖率门限（如 80% 起），对关键资源/资产增加单测
@@ -93,22 +93,52 @@
 
 —
 
-### M4. 扩展能力与端到端示例
-- [ ] MLflow 集成
-  - [ ] models.resources: MLflow Tracking 客户端资源（从 env 读取 TRACKING_URI/EXPERIMENT）
-  - [ ] models.assets: 训练/评估示例资产（记录参数、指标、模型；可先用 sklearn/轻量例子）
-  - [ ] 示例：从 Dagster 资产触发一次 MLflow run 并在 UI 可见
-- [ ] Qdrant 集成
-  - [ ] data/resources 或 models/resources: Qdrant 客户端资源（集合创建、向量写入）
-  - [ ] data.assets: 简单向量化与写入（可先用随机向量/占位 encoder），查询演示
-- [ ] LLM/Agent
-  - [ ] llm.assets: 基于 LangChain 的最小链路（离线 stub/或本地小模型/云端占位），加入流式/结构化输出示例
-  - [ ] 可选：LangFlow 无头模式/导入导出示例，与 LangChain 互操作说明
+### M4. 向量检索最小链路（RAG-MVP）
+- [ ] Qdrant 集成（最小可用）
+  - [ ] resources: 轻量 Qdrant HTTP 资源，支持 ensure_collection/upsert/search
+  - [ ] assets: 向量化→写入→检索最小链路（使用占位 encoder/随机向量或 embed_texts_stub）
+  - [ ] 测试：为资源与资产补充基础单测（不依赖外部 Qdrant，或通过资源覆盖）
+- [ ] LLM 占位
+  - [ ] llm.assets: 占位/离线 embedding（embed_texts_stub），保持可替换真实 embedding
+- [ ] 文档与指南
+  - [ ] docs/task_M4.md：设计、使用说明与 FAQ
+
+验收标准：
+- [ ] 通过 Dagster 物化“向量化→写入→检索”链路，返回命中结果
+- [ ] Qdrant 后端可二选一：
+  - [ ] 使用 docker-compose 启动 qdrant 容器（端口 6333）
+  - [ ] 指向远程 Qdrant 实例（通过资源配置覆盖 host/port/api_key）
+- [ ] pytest 全绿，新增内容不引入额外重量依赖
+
+—
+
+### M5. MLflow 集成
+- [ ] models.resources: MLflow Tracking 客户端资源（从 env 读取 TRACKING_URI/EXPERIMENT）
+- [ ] models.assets: 训练/评估示例资产（记录参数、指标、模型；可先用 sklearn/轻量例子）
+- [ ] 示例：从 Dagster 资产触发一次 MLflow run 并在 UI 可见
+
+验收标准：
+- [ ] 本地或容器环境可成功写入 MLflow，并在 UI 可见
+- [ ] 与 Postgres backend store 联通（如采用 compose）
+
+—
+
+### M6. LLM/Agent 与编排增强
+- [ ] llm.assets: 基于 LangChain 的最小链路（可选离线/本地小模型/云端占位），加入流式/结构化输出示例
+- [ ] 可选：LangFlow 无头模式/导入导出示例，与 LangChain 互操作说明
+- [ ] 调度/分区/传感器
+  - [ ] partitions：日/小时分区示例；schedules：定时；sensors：基于外部事件（可选）
+
+验收标准：
+- [ ] 资产链可通过 schedule/sensor 自动触发
+- [ ] LLM 链路运行稳定，有基础示例与文档
+
+—
+
+### M7. 可视化与生产化指引
 - [ ] 可视化
   - [ ] Streamlit 应用骨架：读取 Postgres/Qdrant 或展示 MLflow 指标，演示 multipage 与缓存
   - [ ] 可选：Plotly Dash/Superset 接入指引
-- [ ] 调度/分区/传感器
-  - [ ] partitions：日/小时分区示例；schedules：定时；sensors：基于外部事件（可选）
 - [ ] 生产化指引（文档）
   - [ ] PostgreSQL（角色/权限、连接池 PgBouncer、备份/恢复）
   - [ ] Qdrant（快照/备份、HNSW/量化配置、payload 索引与副本/分片基础）
@@ -116,8 +146,8 @@
   - [ ] 安全与合规（最小权限、Secrets 管理、日志与监控）
 
 验收标准：
-- [ ] 本地一键启动后可跑通“数据→模型→向量→应用”的端到端最小闭环 Demo
-- [ ] 提供操作手册与问题诊断清单（FAQ/Runbook）
+- [ ] 提供可运行的最小可视化样例
+- [ ] 生产化运行与运维文档可复现
 
 —
 

@@ -13,6 +13,7 @@ authors = [{ name = "Dagma Authors" }]
 dependencies = [
   "dagster",
   "dagster-webserver",
+  "mlflow",
 ]
 
 [tool.dagster]
