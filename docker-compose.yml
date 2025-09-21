@@ -20,13 +20,6 @@ services:
       - dagma
 
   user_code:
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile_user_code
-      args:
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTPS_PROXY}
-        NO_PROXY: ${NO_PROXY}
     image: ${USER_CODE_IMAGE:-dagma/user-code:dev}
     environment:
       DAGSTER_HOME: /opt/dagster/dagster_home
@@ -48,7 +41,17 @@ services:
       postgres:
         condition: service_healthy
       mlflow:
-        condition: service_started
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      langflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "dagster api grpc-health-check --host 127.0.0.1 --port 4000 || exit 1"]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+      start_period: 10s
     volumes:
       - dagster_home:/opt/dagster/dagster_home
       - ./docker/config/dagster.yaml:/opt/dagster/dagster_home/dagster.yaml:ro
@@ -57,13 +60,6 @@ services:
       - dagma
 
   webserver:
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile_dagster
-      args:
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTPS_PROXY}
-        NO_PROXY: ${NO_PROXY}
     image: ${DAGSTER_IMAGE:-dagma/dagster:dev}
     command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "/opt/dagster/workspace.yaml"]
     ports:
@@ -86,18 +82,17 @@ services:
       postgres:
         condition: service_healthy
       user_code:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:3000/dagit_info', timeout=5).status==200 else sys.exit(1)\" "]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+      start_period: 15s
     networks:
       - dagma
 
   daemon:
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile_dagster
-      args:
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTPS_PROXY}
-        NO_PROXY: ${NO_PROXY}
     image: ${DAGSTER_IMAGE:-dagma/dagster:dev}
     command: ["dagster-daemon", "run"]
     restart: on-failure
@@ -117,23 +112,21 @@ services:
       postgres:
         condition: service_healthy
       user_code:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "dagster instance info >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
     networks:
       - dagma
 
   mlflow:
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile_mlflow
-      args:
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTPS_PROXY}
-        NO_PROXY: ${NO_PROXY}
     image: ${MLFLOW_IMAGE:-dagma/mlflow:dev}
-    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000", "--serve-artifacts", "--backend-store-uri", "postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${MLFLOW_DB:-mlflow}", "--artifacts-destination", "/mlruns"]
+    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000", "--serve-artifacts", "--backend-store-uri", "postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dagster}?options=-csearch_path%3Dmlflow", "--artifacts-destination", "/mlruns"]
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
-      MLFLOW_DB: ${POSTGRES_DB:-dagster}
     ports:
       - "${MLFLOW_PORT:-5000}:5000"
     volumes:
@@ -141,6 +134,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:5000/', timeout=5).status==200 else sys.exit(1)\" "]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+      start_period: 10s
     networks:
       - dagma
 
@@ -150,6 +149,12 @@ services:
       - "${QDRANT_PORT:-6333}:6333"
     volumes:
       - qdrant_storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c \"if command -v curl >/dev/null 2>&1; then curl -fsS http://127.0.0.1:6333/readyz >/dev/null; elif command -v wget >/dev/null 2>&1; then wget -qO- http://127.0.0.1:6333/readyz >/dev/null; elif command -v nc >/dev/null 2>&1; then nc -z 127.0.0.1 6333; else exit 1; fi\" "]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+      start_period: 10s
     networks:
       - dagma
 
@@ -157,9 +162,13 @@ services:
     image: ${LANGFLOW_IMAGE:-langflowai/langflow:latest}
     ports:
       - "${LANGFLOW_PORT:-7860}:7860"
-    environment:
-      # 可选：如果启用了鉴权，请在 .env 或 CI 中提供 API Key
-      LANGFLOW_API_KEY: ${LANGFLOW_API_KEY}
+    # environment 字段在为空时会触发 Compose 校验错误，直接移除，若需启用鉴权可在 .env 或 CI 中添加变量
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:7860/docs', timeout=5).status==200 else sys.exit(1)\" "]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+      start_period: 15s
     networks:
       - dagma
 

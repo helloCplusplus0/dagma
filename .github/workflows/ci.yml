@@ -46,3 +46,34 @@ jobs:
 
       - name: Tests (pytest)
         run: uv run pytest -q
+
+  smoke:
+    name: smoke-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      COMPOSE_PROJECT_NAME: dagma-ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Docker info
+        run: |
+          docker version
+          docker compose version
+
+      - name: Build local images for dev tags
+        run: |
+          docker build -f docker/Dockerfile_user_code -t dagma/user-code:dev .
+          docker build -f docker/Dockerfile_dagster -t dagma/dagster:dev .
+          docker build -f docker/Dockerfile_mlflow -t dagma/mlflow:dev .
+
+      - name: Run smoke
+        run: |
+          make smoke
+
+      - name: Compose logs on failure
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs --no-color --tail=200
