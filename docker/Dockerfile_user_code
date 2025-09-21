@@ -11,12 +11,21 @@ ARG HTTPS_PROXY
 ARG NO_PROXY
 ENV http_proxy=${HTTP_PROXY} https_proxy=${HTTPS_PROXY} no_proxy=${NO_PROXY}
 
+# 为可能缺失预编译轮子的依赖提供最小构建工具（如 watchfiles/uvloop/orjson）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      cargo \
+      rustc && \
+    rm -rf /var/lib/apt/lists/*
+
 # 安装最小依赖：Dagster 与 Postgres 存储适配器
 RUN pip install --no-cache-dir \
     dagster \
     dagster-postgres \
     psycopg2-binary \
-    pydantic>=2
+    pydantic>=2 \
+    mlflow
 
 # 代码位置目录
 WORKDIR /opt/dagster/app
@@ -30,3 +39,5 @@ EXPOSE 4000
 
 # 以模块方式启动 gRPC 代码位置（与 src/dagma/definitions.py 对齐）
 CMD ["dagster", "api", "grpc", "--module-name", "dagma.definitions", "--host", "0.0.0.0", "--port", "4000"]
+
+# CI: noop change to trigger docker-build workflow validation

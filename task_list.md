@@ -5,9 +5,9 @@
 —
 
 ## 概览
-- 核心组件：Dagster（编排）、MLflow（实验追踪）、Qdrant（向量库）、PostgreSQL（数据库）、LangChain/LangFlow（LLM/Agent）、Streamlit（可视化应用）
+- 核心组件：Dagster（编排）、MLflow（实验追踪）、Qdrant（向量库）、PostgreSQL（数据库）、LangChain/LangFlow（LLM/Agent）、可视化（可选，延后评估：Streamlit/Plotly Dash/Superset）
 - 目标结构：遵循 Dagster 标准项目结构（definitions.py、workspace.yaml、dagster.yaml、assets/resources/partitions、tests），分阶段合入。
-- 交付节奏：M1 最小可运行骨架 → M2 docker/compose 与脚本 → M3 工程化与 CI → M4 扩展能力与端到端示例。
+- 交付节奏：M1 最小可运行骨架 → M2 docker/compose 与脚本 → M3 工程化与 CI → M4 向量检索最小链路（RAG-MVP） → M5 MLflow 集成 → M6 LLM/Agent 与编排增强 → M7 观测闭环与生产化指引（不新增 UI 服务）。
 
 —
 
@@ -79,7 +79,7 @@
 
 —
 
-### M3. 工程化与 CI/CD
+### Y M3. 工程化与 CI/CD
 - [ ] 质量基线
   - [ ] ruff/black/isort/mypy 配置与通过
   - [ ] pytest + 覆盖率门限（如 80% 起），对关键资源/资产增加单测
@@ -93,31 +93,78 @@
 
 —
 
-### M4. 扩展能力与端到端示例
-- [ ] MLflow 集成
-  - [ ] models.resources: MLflow Tracking 客户端资源（从 env 读取 TRACKING_URI/EXPERIMENT）
-  - [ ] models.assets: 训练/评估示例资产（记录参数、指标、模型；可先用 sklearn/轻量例子）
-  - [ ] 示例：从 Dagster 资产触发一次 MLflow run 并在 UI 可见
-- [ ] Qdrant 集成
-  - [ ] data/resources 或 models/resources: Qdrant 客户端资源（集合创建、向量写入）
-  - [ ] data.assets: 简单向量化与写入（可先用随机向量/占位 encoder），查询演示
-- [ ] LLM/Agent
-  - [ ] llm.assets: 基于 LangChain 的最小链路（离线 stub/或本地小模型/云端占位），加入流式/结构化输出示例
-  - [ ] 可选：LangFlow 无头模式/导入导出示例，与 LangChain 互操作说明
-- [ ] 可视化
-  - [ ] Streamlit 应用骨架：读取 Postgres/Qdrant 或展示 MLflow 指标，演示 multipage 与缓存
-  - [ ] 可选：Plotly Dash/Superset 接入指引
-- [ ] 调度/分区/传感器
-  - [ ] partitions：日/小时分区示例；schedules：定时；sensors：基于外部事件（可选）
-- [ ] 生产化指引（文档）
-  - [ ] PostgreSQL（角色/权限、连接池 PgBouncer、备份/恢复）
-  - [ ] Qdrant（快照/备份、HNSW/量化配置、payload 索引与副本/分片基础）
-  - [ ] Dagster（代码位置与多部署、实例隔离、配置分层 dev/prod）
-  - [ ] 安全与合规（最小权限、Secrets 管理、日志与监控）
+### M4. 向量检索最小链路（RAG-MVP）
+- [ ] Qdrant 集成（最小可用）
+  - [ ] resources: 轻量 Qdrant HTTP 资源，支持 ensure_collection/upsert/search
+  - [ ] assets: 向量化→写入→检索最小链路（使用占位 encoder/随机向量或 embed_texts_stub）
+  - [ ] 测试：为资源与资产补充基础单测（不依赖外部 Qdrant，或通过资源覆盖）
+- [ ] LLM 占位
+  - [ ] llm.assets: 占位/离线 embedding（embed_texts_stub），保持可替换真实 embedding
+- [ ] 文档与指南
+  - [ ] docs/task_M4.md：设计、使用说明与 FAQ
 
 验收标准：
-- [ ] 本地一键启动后可跑通“数据→模型→向量→应用”的端到端最小闭环 Demo
-- [ ] 提供操作手册与问题诊断清单（FAQ/Runbook）
+- [ ] 通过 Dagster 物化“向量化→写入→检索”链路，返回命中结果
+- [ ] Qdrant 后端可二选一：
+  - [ ] 使用 docker-compose 启动 qdrant 容器（端口 6333）
+  - [ ] 指向远程 Qdrant 实例（通过资源配置覆盖 host/port/api_key）
+- [ ] pytest 全绿，新增内容不引入额外重量依赖
+
+—
+
+### Y M5. MLflow 集成
+- [ ] models.resources: MLflow Tracking 客户端资源（从 env 读取 TRACKING_URI/EXPERIMENT）
+- [ ] models.assets: 训练/评估示例资产（记录参数、指标、模型；可先用 sklearn/轻量例子）
+- [ ] 示例：从 Dagster 资产触发一次 MLflow run 并在 UI 可见
+
+验收标准：
+- [ ] 本地或容器环境可成功写入 MLflow，并在 UI 可见
+- [ ] 与 Postgres backend store 联通（如采用 compose）
+
+—
+
+### M6. Y LLM/Agent 与编排增强
+- [ ] llm.resources: 接入 LangFlow（无头/REST）最小客户端资源，映射 `/api/v1/run/{flow_id}`，支持 `input_value/output_type/input_type/tweaks/session_id/stream`，从环境变量读取 `LANGFLOW_BASE_URL`、`LANGFLOW_API_KEY`、`LANGFLOW_DEFAULT_FLOW_ID`
+- [ ] llm.assets: 新增 `langflow_run_flow` 资产，调用 LangFlow Flow 并记录响应摘要（避免打印大对象），在未配置 `default_flow_id` 时返回 `{"status": "skipped"}` 而非失败
+- [ ] 调度/分区/传感器
+  - [ ] schedules：新增每日 02:00 触发的示例调度，仅选择运行 `langflow_run_flow`
+  - [ ] sensors：可选（后续基于外部事件），本阶段不强制
+- [ ] 文档与示例
+  - [ ] docs/task_M6.md：设计方案、架构关系（Dagster ←REST→ LangFlow）、环境变量、使用方法与 FAQ
+  - [ ] .env.example 增补 `LANGFLOW_*` 变量说明（仅文档说明，不提交明文密钥）
+
+验收标准：
+- [ ] 通过 Dagster UI 可手动物化 `langflow_run_flow`，且在配置有效的情况下成功调用 LangFlow；未配置 `LANGFLOW_DEFAULT_FLOW_ID` 时资产返回 `skipped` 而不报错
+- [ ] 每日调度（02:00）已注册并可在 Dagster WebServer 中看到；可手动触发该 Job 进行验证
+- [ ] 新增代码遵循项目风格与规范（类型注解/注释/日志），单文件不超过 500 行；未引入重复或冲突设计
+- [ ] docs/task_M6.md 文档可复现本阶段功能
+- [ ] 可选：LangFlow 无头模式/导入导出示例，与 LangChain 互操作说明
+- [ ] 调度/分区/传感器
+  - [ ] partitions：日/小时分区示例；schedules：定时；sensors：基于外部事件（可选）
+
+验收标准：
+- [ ] 资产链可通过 schedule/sensor 自动触发
+- [ ] LLM 链路运行稳定，有基础示例与文档
+
+—
+
+### Y M7. 观测闭环与生产化指引（不新增 UI 服务）
+- [ ] Dagster 侧观测闭环
+  - [ ] 在现有资产中补充 Dagster Metadata（摘要表、计数、采样）
+  - [ ] 增加外部 URL 深链接：MLflow Run、LangFlow Flow、Qdrant Collection
+  - [ ] 示例 Job：一键跑通并在 UI 展示元数据与跳转链接
+- [ ] 测试与验收
+  - [ ] 对 models.assets 与 mlflow 资源做最小单测（资源覆盖/打桩，不依赖外部网络）
+  - [ ] 运行验收：通过 Dagster UI 查看资产 Metadata 与跳转到 MLflow/LangFlow
+- [ ] 安全与合规
+  - [ ] 准备只读账号/最小权限（DB/Qdrant/MLflow）
+  - [ ] 更新 .env.example 字段说明与使用建议（不提交真实密钥）
+- [ ] 后续选型评估（可选）
+  - [ ] 当需要统一门户/跨系统汇总时，再评估 Streamlit/Dash/BI 的轻量接入
+
+验收标准：
+- [ ] 不新增 UI 服务，Dagster UI 内可见完善的资产 Metadata 与深链接
+- [ ] 单测通过，最小示例可复现观测闭环与安全配置
 
 —
 
@@ -130,8 +177,8 @@
 - [ ] src/dagma/defs/models/assets.py：最小训练/评估并记录到 MLflow
 - [ ] src/dagma/defs/llm/resources.py：LangChain/LangFlow 集成入口（占位）
 - [ ] src/dagma/defs/llm/assets.py：最小链路/结构化输出示例（占位）
-- [ ] src/dagma/defs/viz/resources.py：可视化相关（Streamlit/Plotly Dash）占位
-- [ ] src/dagma/defs/viz/assets.py：产出可视化可消费的数据/图表
+- [ ] src/dagma/defs/viz/resources.py：（可选，后续评估）可视化相关（Streamlit/Plotly Dash）占位
+- [ ] src/dagma/defs/viz/assets.py：（可选，后续评估）产出可视化可消费的数据/图表
 - [ ] tests/test_assets.py：资产行为测试（含资源覆盖）
 - [ ] tests/test_resources.py：资源配置与校验测试
 - [ ] dagster.yaml / workspace.yaml：实例与代码位置配置
@@ -162,6 +209,7 @@
 - [ ] 网关/路由（Traefik）
 - [ ] 示例数据集与 Benchmark 脚本
 - [ ] 发布流程与版本标记（SemVer/Release Drafter）
+- [ ] Streamlit/Plotly Dash 的轻量接入（当需要统一门户时）
 
 —
 
@@ -171,3 +219,4 @@
 3) 推进 M2 容器化与一键启动，打通最小服务编排。
 4) 完成 M3 工程化与 CI，使每个 PR 都可验证质量。
 5) 进入 M4 集成与 Demo 闭环，开始撰写用户指南与运维手册。
+6) 推进 M7 观测闭环（不新增 UI 服务），补齐 Metadata、单测与安全合规说明。
