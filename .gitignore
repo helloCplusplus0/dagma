@@ -25,13 +25,14 @@ uv.lock
 .idea/
 .vscode/
 .DS_Store
-+.trae/
+.trae/
 
 # Local docker overrides
-+docker-compose.override.yml
+docker-compose.override.yml
 
 # Dagster runtime artifacts (if used)
 .dagster/
+.tmp_dagster_home_*/
 
 # MLflow tracking runs
 mlruns/

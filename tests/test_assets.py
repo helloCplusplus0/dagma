@@ -31,6 +31,26 @@ def test_models_asset_with_resource_override():
     assert payload["status"] == "ok"
     assert "run_id" in payload
 
+    # 补充：断言资产物化元数据的键与类型（最小覆盖）
+    ev = result.get_asset_materialization_events()[0]
+    md = ev.event_specific_data.materialization.metadata or {}
+    # 必备键存在
+    for key in [
+        "params_count",
+        "metrics_count",
+        "artifact_uploaded",
+        "mlflow_tracking_uri",
+        "mlflow_run_url",
+    ]:
+        assert key in md, f"missing metadata key: {key}"
+    # 类型检查（基于 MetadataValue.value 的 Python 类型，避免依赖内部类名）
+    assert isinstance(md["params_count"].value, int)
+    assert isinstance(md["metrics_count"].value, int)
+    assert isinstance(md["artifact_uploaded"].value, bool)
+    assert isinstance(md["mlflow_tracking_uri"].value, str)
+    # 由于使用 Stub 资源，mlflow_run_url 为 None
+    assert md["mlflow_run_url"].value is None
+
 
 def test_llm_assets_defined():
     # 轻量验证：资产函数可被 materialize 调用到定义阶段（不执行到外部请求）

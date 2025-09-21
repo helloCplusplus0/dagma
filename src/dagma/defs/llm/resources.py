@@ -19,6 +19,87 @@ class LangflowStubResource(ConfigurableResource):
         return f"LLM-ECHO: {prompt}"
 
 
+# 新增：LangFlow REST 资源（最小可用）。
+class LangflowRestResource(ConfigurableResource):
+    """极简 LangFlow REST 客户端资源（不依赖第三方库）。
+
+    仅覆盖本项目最小需求：
+    - run_flow(flow_id, input_value, output_type, input_type, tweaks, session_id, stream)
+
+    注意：生产中建议启用鉴权（API Key/网关）、重试/超时、TLS/证书校验与审计日志。
+    """
+
+    base_url: str = Field(
+        default="http://localhost:7860",
+        description="LangFlow 服务基础地址，如 http://localhost:7860",
+    )
+    api_key: str | None = Field(
+        default=None, description="LangFlow API Key（可选，若启用鉴权则必填）"
+    )
+    timeout: float = Field(default=10.0, description="HTTP 超时时间（秒）")
+
+    # 便于 Dagster 调度使用的默认 Flow 配置（可选）
+    default_flow_id: str | None = Field(default=None, description="默认调用的 Flow ID（可选）")
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["x-api-key"] = self.api_key
+        return headers
+
+    def _request(self, method: str, path: str, body: dict | None = None) -> Any:
+        url = urllib.parse.urljoin(self.base_url.rstrip("/") + "/", path.lstrip("/"))
+        data = None if body is None else json.dumps(body).encode("utf-8")
+        req = urllib.request.Request(
+            url=url, data=data, headers=self._headers(), method=method.upper()
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                raw = resp.read()
+                if not raw:
+                    return None
+                # LangFlow 返回 JSON
+                return json.loads(raw.decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8") if hasattr(e, "read") else str(e)
+            raise RuntimeError(f"LangFlow HTTP {e.code} {e.reason}: {detail}") from e
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"LangFlow connection error: {e}") from e
+
+    def run_flow(
+        self,
+        *,
+        flow_id: str | None = None,
+        input_value: str = "hello",
+        output_type: str = "chat",
+        input_type: str = "chat",
+        tweaks: dict[str, Any] | None = None,
+        session_id: str | None = None,
+        stream: bool = False,
+    ) -> Any:
+        """调用 LangFlow 的 /api/v1/run/{flow_id} 接口。
+
+        返回值为 LangFlow 的原始 JSON 响应，便于上层资产记录/解析。
+        """
+        fid = flow_id or self.default_flow_id
+        if not fid:
+            # 无 Flow ID 时直接返回跳过原因，避免资产失败
+            return {"status": "skipped", "reason": "no flow_id provided"}
+
+        query = f"?stream={'true' if stream else 'false'}"
+        path = f"/api/v1/run/{fid}{query}"
+        body: dict[str, Any] = {
+            "input_value": input_value,
+            "output_type": output_type,
+            "input_type": input_type,
+        }
+        if tweaks:
+            body["tweaks"] = tweaks
+        if session_id:
+            body["session_id"] = session_id
+        return self._request("POST", path, body)
+
+
 class QdrantHttpResource(ConfigurableResource):
     """极简 Qdrant REST 客户端资源（不依赖第三方库）。
 
@@ -134,4 +215,4 @@ class QdrantHttpResource(ConfigurableResource):
         return resp.get("result", []) if isinstance(resp, dict) else []
 
 
-__all__ = ["LangflowStubResource", "QdrantHttpResource"]
+__all__ = ["LangflowStubResource", "LangflowRestResource", "QdrantHttpResource"]

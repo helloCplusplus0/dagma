@@ -35,12 +35,15 @@ services:
       MLFLOW_USE_TRACKING: "1"
       # 明确指向 mlflow 服务，避免走宿主代理
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      LANGFLOW_BASE_URL: http://langflow:7860
+      # 显式指向 qdrant 服务，避免默认 localhost 导致连接失败
+      QDRANT_HOST: qdrant
       HTTP_PROXY: ""
       http_proxy: ""
       HTTPS_PROXY: ""
       https_proxy: ""
-      NO_PROXY: user_code,postgres,mlflow,qdrant,localhost,127.0.0.1,::1
-      no_proxy: user_code,postgres,mlflow,qdrant,localhost,127.0.0.1,::1
+      NO_PROXY: user_code,postgres,mlflow,qdrant,langflow,localhost,127.0.0.1,::1
+      no_proxy: user_code,postgres,mlflow,qdrant,langflow,localhost,127.0.0.1,::1
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,8 +76,8 @@ services:
       http_proxy: ""
       HTTPS_PROXY: ""
       https_proxy: ""
-      NO_PROXY: user_code,postgres,mlflow,qdrant,localhost,127.0.0.1,::1
-      no_proxy: user_code,postgres,mlflow,qdrant,localhost,127.0.0.1,::1
+      NO_PROXY: user_code,postgres,mlflow,qdrant,langflow,localhost,127.0.0.1,::1
+      no_proxy: user_code,postgres,mlflow,qdrant,langflow,localhost,127.0.0.1,::1
     volumes:
       - dagster_home:/opt/dagster/dagster_home
       - ./docker/config/dagster.yaml:/opt/dagster/dagster_home/dagster.yaml:ro
@@ -105,8 +108,8 @@ services:
       http_proxy: ""
       HTTPS_PROXY: ""
       https_proxy: ""
-      NO_PROXY: user_code,postgres,mlflow,qdrant,localhost,127.0.0.1,::1
-      no_proxy: user_code,postgres,mlflow,qdrant,localhost,127.0.0.1,::1
+      NO_PROXY: user_code,postgres,mlflow,qdrant,langflow,localhost,127.0.0.1,::1
+      no_proxy: user_code,postgres,mlflow,qdrant,langflow,localhost,127.0.0.1,::1
     volumes:
       - dagster_home:/opt/dagster/dagster_home
       - ./docker/config/dagster.yaml:/opt/dagster/dagster_home/dagster.yaml:ro
@@ -147,6 +150,16 @@ services:
       - "${QDRANT_PORT:-6333}:6333"
     volumes:
       - qdrant_storage:/qdrant/storage
+    networks:
+      - dagma
+
+  langflow:
+    image: ${LANGFLOW_IMAGE:-langflowai/langflow:latest}
+    ports:
+      - "${LANGFLOW_PORT:-7860}:7860"
+    environment:
+      # 可选：如果启用了鉴权，请在 .env 或 CI 中提供 API Key
+      LANGFLOW_API_KEY: ${LANGFLOW_API_KEY}
     networks:
       - dagma
 
